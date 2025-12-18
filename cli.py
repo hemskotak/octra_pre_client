@@ -77,13 +77,27 @@ def ld():
         with open(wallet_path, 'r') as f:
             d = json.load(f)
         
-        priv = d.get('priv')
+        raw_priv = d.get('priv')
         addr = d.get('addr')
         rpc = d.get('rpc', 'http://localhost:8080')
         
-        if not priv or not addr:
+        if not raw_priv or not addr:
             return False
-            
+
+        # Support both 32-byte hex seeds and base64-encoded NaCl signing keys.
+        # If a 64-char hex string is provided, convert it to base64 in place.
+        if re.fullmatch(r'[0-9a-fA-F]{64}', raw_priv):
+            priv = base64.b64encode(bytes.fromhex(raw_priv)).decode()
+        else:
+            # Assume base64; validate it decodes to 32 bytes.
+            try:
+                decoded = base64.b64decode(raw_priv)
+                if len(decoded) != 32:
+                    return False
+                priv = raw_priv
+            except Exception:
+                return False
+        
         if not rpc.startswith('https://') and 'localhost' not in rpc:
             print(f"{c['R']}⚠️  WARNING: Using insecure HTTP connection!{c['r']}")
             time.sleep(2)
